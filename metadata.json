@@ -1,0 +1,6 @@
+{
+  "name": "Royal Prestige Cart",
+  "description": "Aplicación profesional para cotizaciones y preparación de pedidos de Royal Prestige. Diseñada con enfoque mobile-first, limpia y escalable.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
