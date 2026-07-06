@@ -7,13 +7,15 @@ import React from 'react';
 import { useCart } from '../context/CartContext';
 import { DistributorRepository } from '../repositories';
 import { MOCK_COMPANY_PROFILES } from '../mockData';
-import { ShieldCheck, FileSpreadsheet, Check } from 'lucide-react';
+import { ShieldCheck, FileSpreadsheet, Check, LogOut, User as UserIcon } from 'lucide-react';
 
 export const ConfigScreen: React.FC = () => {
   const {
     activeProfile,
     setActiveProfile,
     setDistributorInfo,
+    currentUser,
+    logout,
   } = useCart();
 
   const PROFILES = [
@@ -36,6 +38,32 @@ export const ConfigScreen: React.FC = () => {
         <h2 className="text-xl font-bold text-slate-900">Configuración de Perfil</h2>
         <p className="text-xs text-slate-500">Selecciona el equipo o territorio activo para administrar cotizaciones</p>
       </div>
+
+      {/* User Session Card */}
+      {currentUser && (
+        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-slate-800 truncate">
+                {currentUser.nombre || (currentUser.user && currentUser.user.nombre) || "Vendedor Autorizado"}
+              </h3>
+              <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mt-0.5 truncate">
+                Código: {currentUser.codigoVendedor || (currentUser.user && currentUser.user.codigoVendedor) || "N/A"} • {currentUser.distributor || "Distribuidor"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-600 border border-slate-200/60 transition-all text-xs font-bold active:scale-95 shrink-0 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">Salir</span>
+          </button>
+        </div>
+      )}
 
       {/* Profile Selector */}
       <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">

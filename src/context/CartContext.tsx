@@ -38,6 +38,9 @@ interface CartContextProps {
   setValidationError: (error: string | null) => void;
   clientName: string;
   setClientName: (name: string) => void;
+  currentUser: any;
+  setCurrentUser: (user: any) => void;
+  logout: () => void;
   
   // Computed values
   totalPrice: number;
@@ -80,7 +83,56 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const [activeProfile, setActiveProfile] = useState<string>('Witman Group');
+  const [currentUser, setCurrentUserState] = useState<any>(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [activeProfile, setActiveProfile] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.distributor) {
+          const matched = MOCK_COMPANY_PROFILES.find(p => 
+            p.companyId.toLowerCase() === String(parsed.distributor).toLowerCase() ||
+            p.companyName.toLowerCase().includes(String(parsed.distributor).toLowerCase()) ||
+            String(parsed.distributor).toLowerCase().includes(p.companyName.toLowerCase())
+          );
+          if (matched) return matched.companyName;
+        }
+      }
+    } catch {}
+    return 'Witman Group';
+  });
+
+  const setCurrentUser = (user: any) => {
+    setCurrentUserState(user);
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+      if (user.distributor) {
+        const matched = MOCK_COMPANY_PROFILES.find(p => 
+          p.companyId.toLowerCase() === String(user.distributor).toLowerCase() ||
+          p.companyName.toLowerCase().includes(String(user.distributor).toLowerCase()) ||
+          String(user.distributor).toLowerCase().includes(p.companyName.toLowerCase())
+        );
+        if (matched) {
+          setActiveProfile(matched.companyName);
+        }
+      }
+    } else {
+      localStorage.removeItem('user');
+    }
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setCurrentScreen('home');
+  };
 
   const [cartItems, setCartItems] = useState<QuoteItem[]>(() => {
     // Start with 2 pre-selected products from ProductRepository so the app has content immediately, enhancing exploration
@@ -299,6 +351,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setValidationError,
         clientName,
         setClientName,
+        currentUser,
+        setCurrentUser,
+        logout,
         
         // Computed Values
         totalPrice,
