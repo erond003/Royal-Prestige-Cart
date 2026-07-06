@@ -3,7 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// 3.1 Product
 export interface Product {
+  // New Google Sheets Schema (Phase 3.6)
+  linea: string;
+  codigo: string;
+  descripcion: string;
+  precioSinIva: number;
+  iva: number;
+  precioTotal: number;
+
+  // Existing Compatibility Fields (Do not remove to keep existing UI working perfectly)
   id: string;
   code: string;
   name: string;
@@ -24,16 +34,31 @@ export interface QuoteItem {
   customInitial?: CustomInitial;
 }
 
-export interface DistributorInfo {
-  name: string;
-  code: string;
-  address: string;
-  phone: string;
-  sellerCode: string;
+// 3.2 FinancialFactor
+export interface FinancialFactor {
+  numeroCuotas: number;
+  factorFinanciero: number;
+  tasaEfectivaAnual: number;
+  tasaMensual: number;
 }
 
-// Phase 3.0 required models
+// 3.3 User
+export interface User {
+  codigoVendedor: string;
+  nombre: string;
+  password: string;
+  distribuidorId: string;
+  activo: boolean;
+}
+
+// 3.4 Distributor
 export interface Distributor {
+  // New Google Sheets Schema (Phase 3.6)
+  id: string;
+  nombre: string;
+  googleSheetId: string;
+
+  // Existing Compatibility Fields (Do not remove)
   name: string;
   code: string;
   address: string;
@@ -41,34 +66,78 @@ export interface Distributor {
   sellerCode: string;
 }
 
+// For existing components
+export type DistributorInfo = Distributor;
+
+// 3.5 QuotationItem
+export interface QuotationItem {
+  // New Google Sheets Schema (Phase 3.6)
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  precioTotal: number;
+
+  // Existing Compatibility Fields (Do not remove)
+  product?: Product;
+  quantity?: number;
+  isSelected?: boolean;
+  customInitial?: CustomInitial;
+}
+
+// 3.6 Quotation
+export interface Quotation {
+  // New Google Sheets Schema (Phase 3.6)
+  id: string;
+  fecha: string;
+  hora: string;
+  cliente: string;
+  distribuidorId: string;
+  codigoVendedor: string;
+  nombreVendedor: string;
+  items: QuotationItem[];
+  totalCompra: number;
+  inicialAplicada: number;
+  numeroCuotas: number;
+  pagoMinimoMensual: number;
+
+  // Existing Compatibility Fields (Do not remove)
+  clientName?: string;
+  date?: string;
+  totalPrice?: number;
+  initialAmount?: number;
+  financedAmount?: number;
+  plazo?: number;
+  cuotaMensual?: number;
+}
+
+// 3.7 Configuration
 export interface Configuration {
+  // New Google Sheets Schema (Phase 3.6)
+  nombreDistribuidor: string;
+  direccion: string;
+  telefono: string;
+  codigoDistribuidor: string;
+  inicialPorDefecto: number;
+  inicialMaxima: number;
+  cuotasDisponibles: number[];
+  version: number;
+
+  // Existing Compatibility Fields (Do not remove)
   defaultInitialPercentage: number;
   minInitialPercentage: number;
   maxInitialPercentage: number;
-  allowedIncrement: number; // increment step, e.g. 5
-  currencyFormat: string; // e.g. '$#,##0'
-  currency: string; // e.g. 'COP'
+  allowedIncrement: number;
+  currencyFormat: string;
+  currency: string;
   roundToNextThousand: boolean;
 }
 
+// Existing Compatibility Type for payment factors
 export interface PaymentFactor {
   term: number;
   factor: number;
 }
-
-export interface Quotation {
-  id: string;
-  clientName: string;
-  date: string;
-  items: QuotationItem[];
-  totalPrice: number;
-  initialAmount: number;
-  financedAmount: number;
-  plazo: number;
-  cuotaMensual: number;
-}
-
-export type QuotationItem = QuoteItem;
 
 export interface UserProfile {
   id: string;

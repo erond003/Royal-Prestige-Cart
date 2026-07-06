@@ -8,3 +8,4 @@ export * from './FinancialRepository';
 export * from './ConfigurationRepository';
 export * from './DistributorRepository';
 export * from './ActiveCompanyProfile';
+export * from './PriceService';
