@@ -6,12 +6,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../context/CartContext';
-import { ProductRepository } from '../repositories';
 import { Search, X, Check, ShoppingBag } from 'lucide-react';
 import { Product } from '../types';
 
 export const SearchOverlay: React.FC = () => {
-  const { searchOpen, setSearchOpen, addQuoteItem, cartItems, activeCompanyProfile } = useCart();
+  const { searchOpen, setSearchOpen, addQuoteItem, cartItems, productsCatalog, loadingProducts } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -28,17 +27,33 @@ export const SearchOverlay: React.FC = () => {
 
   if (!searchOpen) return null;
 
-  // Filter products based on search term using the repository
-  const filteredProducts = ProductRepository.searchProducts(searchQuery, activeCompanyProfile);
+  // Filter products based on search term using the context catalog
+  const term = searchQuery.toLowerCase().trim();
+  const filteredProducts = !term
+    ? productsCatalog
+    : productsCatalog.filter((product) => {
+        const matchesName = (product.name || '').toLowerCase().includes(term);
+        const matchesCode = (product.code || '').toLowerCase().includes(term);
+        const matchesCategory = (product.category || '').toLowerCase().includes(term);
+        const matchesPrice = (product.price || 0).toString().includes(term);
+        
+        const numbersInQuery = term.match(/\d+/g);
+        const matchesNumbers = numbersInQuery
+          ? numbersInQuery.every((num) => (product.name || '').includes(num) || (product.code || '').includes(num))
+          : false;
+
+        return matchesName || matchesCode || matchesCategory || matchesPrice || matchesNumbers;
+      });
 
   // Group filtered products by category
   const groupedProducts = filteredProducts.reduce<Record<string, Product[]>>((groups, product) => {
-    if (!groups[product.category]) {
-      groups[product.category] = [];
+    const category = product.category || 'General';
+    if (!groups[category]) {
+      groups[category] = [];
     }
-    groups[product.category].push(product);
+    groups[category].push(product);
     return groups;
-  }, {});
+  }, {} as Record<string, Product[]>);
 
   const handleSelectProduct = (product: Product) => {
     addQuoteItem(product);
@@ -49,7 +64,7 @@ export const SearchOverlay: React.FC = () => {
     return cartItems.some((item) => item.product.id === productId);
   };
 
-  const totalProductsCount = ProductRepository.getProducts(activeCompanyProfile).length;
+  const totalProductsCount = productsCatalog.length;
 
   return (
     <AnimatePresence>
@@ -102,14 +117,20 @@ export const SearchOverlay: React.FC = () => {
 
           {/* Product Categories / Results */}
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {Object.keys(groupedProducts).length > 0 ? (
+            {loadingProducts ? (
+              <div className="py-12 text-center text-slate-400">
+                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-700">Cargando catálogo en vivo...</p>
+                <p className="text-xs mt-1 text-slate-400">Estableciendo conexión segura con Google Sheets...</p>
+              </div>
+            ) : Object.keys(groupedProducts).length > 0 ? (
               Object.entries(groupedProducts).map(([category, products]) => (
                 <div key={category} className="space-y-2">
                   <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2">
                     {category}
                   </h3>
                   <div className="grid grid-cols-1 gap-1.5">
-                    {products.map((product) => {
+                    {(products as Product[]).map((product) => {
                       const inCart = isAlreadyInCart(product.id);
                       return (
                         <button

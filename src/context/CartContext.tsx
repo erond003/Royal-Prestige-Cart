@@ -41,6 +41,8 @@ interface CartContextProps {
   currentUser: any;
   setCurrentUser: (user: any) => void;
   logout: () => void;
+  productsCatalog: Product[];
+  loadingProducts: boolean;
   
   // Computed values
   totalPrice: number;
@@ -134,34 +136,80 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentScreen('home');
   };
 
-  const [cartItems, setCartItems] = useState<QuoteItem[]>(() => {
-    // Start with 2 pre-selected products from ProductRepository so the app has content immediately, enhancing exploration
-    const products = ProductRepository.getProducts(MOCK_COMPANY_PROFILES[0]);
-    return [
-      {
-        product: products[0] || {
-          id: 'rp-sc-05',
-          code: 'RP-SC05',
-          name: 'Sistema de Cocina Esencial de 5 Piezas',
-          category: 'Sistemas de Cocina',
-          price: 1499000,
-        },
-        quantity: 1,
-        isSelected: true,
-      },
-      {
-        product: products[5] || {
-          id: 'rp-sa-10',
-          code: 'RP-SA10',
-          name: 'Sartén Novel de 10 Pulgadas con Tapa',
-          category: 'Sartenes y Especialidades',
-          price: 620000,
-        },
-        quantity: 1,
-        isSelected: true,
+  // Find current company profile object based on activeProfile string
+  const companyProfileObj = useMemo(() => {
+    const profile = MOCK_COMPANY_PROFILES.find((p) => p.companyName === activeProfile) || MOCK_COMPANY_PROFILES[0];
+    setActiveCompanyProfile(profile);
+    return profile;
+  }, [activeProfile]);
+
+  const [productsCatalog, setProductsCatalog] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(false);
+
+  const [cartItems, setCartItems] = useState<QuoteItem[]>([]);
+
+  useEffect(() => {
+    if (!currentUser || !currentUser.distributor) {
+      setProductsCatalog([]);
+      return;
+    }
+
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const response = await fetch("https://script.google.com/macros/s/AKfycbwOiqrkvaSyT7VYjzCTXXKPupq5s53ZvKT9vcbDt-GbVI443ryMZVokWtOdEYE1KfSe/exec", {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain",
+          },
+          body: JSON.stringify({
+            action: "getProducts",
+            distributorCode: currentUser.distributor,
+          }),
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.products)) {
+          const mapped: Product[] = data.products.map((item: any) => {
+            const codeValue = String(item.codigo || item.code || '');
+            const descValue = String(item.descripcion || item.name || '');
+            const lineValue = String(item.linea || item.category || 'General');
+            const totalVal = Number(item.precioTotal || item.precio_total || item.price || 0);
+            const rawVal = Number(item.precioSinIva || item.precio_sin_iva || (totalVal / 1.19));
+            const ivaVal = Number(item.iva || (totalVal - rawVal));
+
+            return {
+              codigo: codeValue,
+              linea: lineValue || 'General',
+              descripcion: descValue,
+              precioTotal: totalVal,
+              precioSinIva: rawVal,
+              iva: ivaVal,
+
+              // Compatibility fields:
+              id: codeValue,
+              code: codeValue,
+              name: descValue,
+              category: lineValue || 'General',
+              price: totalVal,
+            };
+          });
+          setProductsCatalog(mapped);
+        } else {
+          console.warn("No se pudieron cargar los productos reales o el formato no es válido. Cargando mock como fallback.", data);
+          const fallbackProducts = ProductRepository.getProducts(companyProfileObj);
+          setProductsCatalog(fallbackProducts);
+        }
+      } catch (err) {
+        console.error("Error cargando productos de Google Sheets. Cargando mock como fallback:", err);
+        const fallbackProducts = ProductRepository.getProducts(companyProfileObj);
+        setProductsCatalog(fallbackProducts);
+      } finally {
+        setLoadingProducts(false);
       }
-    ];
-  });
+    };
+
+    fetchProducts();
+  }, [currentUser, companyProfileObj]);
 
   const [initialPercentage, setInitialPercentageState] = useState<number>(() => {
     const config = ConfigurationRepository.getConfiguration(MOCK_COMPANY_PROFILES[0]);
@@ -177,13 +225,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [distributorInfo, setDistributorInfo] = useState<DistributorInfo>(() => 
     DistributorRepository.getDistributor(MOCK_COMPANY_PROFILES[0])
   );
-
-  // Find current company profile object based on activeProfile string
-  const companyProfileObj = useMemo(() => {
-    const profile = MOCK_COMPANY_PROFILES.find((p) => p.companyName === activeProfile) || MOCK_COMPANY_PROFILES[0];
-    setActiveCompanyProfile(profile);
-    return profile;
-  }, [activeProfile]);
 
   // Synchronize distributor configuration whenever activeProfile changes
   useEffect(() => {
@@ -354,6 +395,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         setCurrentUser,
         logout,
+        productsCatalog,
+        loadingProducts,
         
         // Computed Values
         totalPrice,
