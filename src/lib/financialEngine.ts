@@ -12,7 +12,7 @@ import { ConfigurationRepository } from '../repositories/ConfigurationRepository
  * Regla obligatoria: Nunca redondear hacia abajo si está activo.
  */
 export function roundToNextThousand(val: number, companyProfile?: CompanyProfile): number {
-  if (val <= 0) return 0;
+  if (isNaN(val) || val <= 0) return 0;
   const config = ConfigurationRepository.getConfiguration(companyProfile);
   if (config.roundToNextThousand) {
     return Math.ceil(val / 1000) * 1000;
@@ -24,6 +24,7 @@ export function roundToNextThousand(val: number, companyProfile?: CompanyProfile
  * Obtiene el factor financiero aplicable según el plazo seleccionado desde el repositorio.
  */
 export function getFinancialFactor(plazo: number, companyProfile?: CompanyProfile): number {
+  if (isNaN(plazo) || plazo <= 0) return 0;
   const factors = FinancialRepository.getPaymentFactors(companyProfile);
   const matched = factors.find((f) => f.term === plazo);
   if (matched !== undefined) {
@@ -31,7 +32,6 @@ export function getFinancialFactor(plazo: number, companyProfile?: CompanyProfil
   }
   // Tasa de interés mensual de respaldo (1.5% mensual)
   const r = 0.015;
-  if (plazo <= 0) return 0;
   return r / (1 - Math.pow(1 + r, -plazo));
 }
 
@@ -39,21 +39,27 @@ export function getFinancialFactor(plazo: number, companyProfile?: CompanyProfil
  * Calcula el precio total de un producto según su precio base y la cantidad.
  */
 export function calculateTotalPrice(price: number, quantity: number): number {
-  return price * quantity;
+  const p = isNaN(price) ? 0 : price;
+  const q = isNaN(quantity) ? 0 : quantity;
+  return p * q;
 }
 
 /**
  * Calcula la inicial para un precio total dado y un porcentaje de inicial global.
  */
 export function calculateInitialAmount(total: number, initialPercentage: number): number {
-  return Math.round(total * (initialPercentage / 100));
+  const t = isNaN(total) ? 0 : total;
+  const pct = isNaN(initialPercentage) ? 0 : initialPercentage;
+  return Math.round(t * (pct / 100));
 }
 
 /**
  * Calcula el saldo a financiar.
  */
 export function calculateFinancedAmount(total: number, initial: number): number {
-  const financed = total - initial;
+  const t = isNaN(total) ? 0 : total;
+  const i = isNaN(initial) ? 0 : initial;
+  const financed = t - i;
   return financed > 0 ? financed : 0;
 }
 
@@ -61,9 +67,11 @@ export function calculateFinancedAmount(total: number, initial: number): number 
  * Base calculation and installment helper functions.
  */
 export function calculateMonthlyPayment(financedAmount: number, plazo: number, companyProfile?: CompanyProfile): number {
-  if (financedAmount <= 0 || plazo <= 0) return 0;
-  const factor = getFinancialFactor(plazo, companyProfile);
-  const rawCuota = financedAmount * factor;
+  const fa = isNaN(financedAmount) ? 0 : financedAmount;
+  const p = isNaN(plazo) ? 0 : plazo;
+  if (fa <= 0 || p <= 0) return 0;
+  const factor = getFinancialFactor(p, companyProfile);
+  const rawCuota = fa * factor;
   return roundToNextThousand(rawCuota, companyProfile);
 }
 

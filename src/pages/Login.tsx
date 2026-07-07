@@ -52,7 +52,8 @@ export default function Login() {
         setCurrentUser({
           codigoVendedor: data.user?.codigoVendedor || userCode.trim(),
           nombre: data.user?.nombre || "Vendedor Autorizado",
-          distributor: data.distributor || data.user?.distribuidorId || "Witman Group",
+          codigoDistribuidor: data.user?.distribuidorId || data.distributor || "WITMAN",
+          distributor: data.distributor || "Witman Group",
           activo: true,
           ...data
         });
