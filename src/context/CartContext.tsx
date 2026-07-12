@@ -6,7 +6,7 @@
   import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
   import { Product, QuoteItem, DistributorInfo, ScreenType, RecentQuote, CustomInitial, CompanyProfile } from '../types';
   import { MOCK_RECENT_QUOTES, MOCK_COMPANY_PROFILES } from '../mockData';
-  import { calculateGlobalFinancials } from '../lib/financialEngine';
+  import { calculateGlobalFinancials, roundToNextThousand } from '../lib/financialEngine';
   import { ProductRepository, DistributorRepository, ConfigurationRepository, FinancialRepository, setActiveCompanyProfile } from '../repositories';
 
   interface CartContextProps {
@@ -47,6 +47,8 @@
     loadingFactors: boolean;
     annualRate: number;
     monthlyRate: string;
+    taxRate: number;
+    distributorConfig: any;
     
     // Computed values
     totalPrice: number;
@@ -103,11 +105,12 @@
         const stored = localStorage.getItem('user');
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed && parsed.distributor) {
+          const distVal = parsed?.distributor?.code || parsed?.distributor?.id || parsed?.distributor || parsed?.codigoDistribuidor;
+          if (distVal) {
             const matched = MOCK_COMPANY_PROFILES.find(p => 
-              p.companyId.toLowerCase() === String(parsed.distributor).toLowerCase() ||
-              p.companyName.toLowerCase().includes(String(parsed.distributor).toLowerCase()) ||
-              String(parsed.distributor).toLowerCase().includes(p.companyName.toLowerCase())
+              p.companyId.toLowerCase() === String(distVal).toLowerCase() ||
+              p.companyName.toLowerCase().includes(String(distVal).toLowerCase()) ||
+              String(distVal).toLowerCase().includes(p.companyName.toLowerCase())
             );
             if (matched) return matched.companyName;
           }
@@ -120,11 +123,12 @@
       setCurrentUserState(user);
       if (user) {
         localStorage.setItem('user', JSON.stringify(user));
-        if (user.distributor) {
+        const distVal = user.distributor?.code || user.distributor?.id || user.distributor || user.codigoDistribuidor;
+        if (distVal) {
           const matched = MOCK_COMPANY_PROFILES.find(p => 
-            p.companyId.toLowerCase() === String(user.distributor).toLowerCase() ||
-            p.companyName.toLowerCase().includes(String(user.distributor).toLowerCase()) ||
-            String(user.distributor).toLowerCase().includes(p.companyName.toLowerCase())
+            p.companyId.toLowerCase() === String(distVal).toLowerCase() ||
+            p.companyName.toLowerCase().includes(String(distVal).toLowerCase()) ||
+            String(distVal).toLowerCase().includes(p.companyName.toLowerCase())
           );
           if (matched) {
             setActiveProfile(matched.companyName);
@@ -154,22 +158,63 @@
     const [loadingFactors, setLoadingFactors] = useState<boolean>(false);
     const [annualRate, setAnnualRate] = useState<number>(0);
     const [monthlyRate, setMonthlyRate] = useState<string>("");
+    const [taxRate, setTaxRate] = useState<number>(0.19);
+    const [distributorConfig, setDistributorConfig] = useState<any>({
+      minInitialPercentage: 0,
+      maxInitialPercentage: 0.60
+    });
 
     const [cartItems, setCartItems] = useState<QuoteItem[]>([]);
 
+    const fetchDistributorInfo = async (distributorCode: string) => {
+      if (!distributorCode) return;
+      try {
+        const response = await fetch(
+          "https://script.google.com/macros/s/AKfycbwOiqrkvaSyT7VYjzCTXXKPupq5s53ZvKT9vcbDt-GbVI443ryMZVokWtOdEYE1KfSe/exec",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "text/plain",
+            },
+            body: JSON.stringify({
+              action: "getDistributorInfo",
+              distributorCode: distributorCode
+            }),
+          }
+        );
+
+        const data = await response.json();
+        console.log("Configuración del distribuidor recibida:", data);
+
+        if (data.success) {
+          setDistributorConfig({
+            companyName: data.companyName,
+            logoUrl: data.logoUrl,
+            phone: data.phone,
+            address: data.address,
+            city: data.city,
+            minInitialPercentage: data.minInitialPercentage !== undefined ? Number(data.minInitialPercentage) : 0,
+            maxInitialPercentage: data.maxInitialPercentage !== undefined ? Number(data.maxInitialPercentage) : 0.60
+          });
+        }
+      } catch (error) {
+        console.error("Error cargando info del distribuidor:", error);
+      }
+    };
+
     useEffect(() => {
 
-      if (!currentUser || !currentUser.codigoDistribuidor) {
+      const targetDistributor = currentUser?.distributor?.code || currentUser?.distributor || currentUser?.codigoDistribuidor;
+
+      if (!currentUser || !targetDistributor) {
         setProductsCatalog([]);
+        setFactors([]);
         return;
       }
 
       const fetchProducts = async () => {
-
         setLoadingProducts(true);
-
         try {
-
           const response = await fetch(
             "https://script.google.com/macros/s/AKfycbwOiqrkvaSyT7VYjzCTXXKPupq5s53ZvKT9vcbDt-GbVI443ryMZVokWtOdEYE1KfSe/exec",
             {
@@ -179,78 +224,118 @@
               },
               body: JSON.stringify({
                 action: "getProducts",
-                distributorCode: currentUser.codigoDistribuidor || currentUser.distributor,
+                distributorCode: targetDistributor
               }),
             }
           );
 
-
           const data = await response.json();
-
           console.log("Productos recibidos:", data);
 
-
           if (data.success && Array.isArray(data.products)) {
-
-
             const mapped: Product[] = data.products.map((item:any)=>({
-
               id: String(item.code),
-
               codigo: String(item.code),
               code: String(item.code),
-
               descripcion: String(item.description),
               name: String(item.description),
-
               linea: String(item.line || "General"),
               category: String(item.line || "General"),
-
               precioTotal: Number(item.totalPrice || 0),
               price: Number(item.totalPrice || 0),
-
               precioSinIva: Number(item.priceWithoutVat || 0),
-
               iva: Number(item.vat || 0)
-
             }));
 
-
-            setProductsCatalog(mapped);
-
-
+            // Deduplicate to avoid React duplicate key warning
+            const uniqueMap = new Map<string, Product>();
+            mapped.forEach((p) => {
+              if (p.id) {
+                uniqueMap.set(p.id, p);
+              }
+            });
+            const deduplicated = Array.from(uniqueMap.values());
+            setProductsCatalog(deduplicated);
           } else {
-
             console.warn(
               "Respuesta productos inválida",
               data
             );
-
             setProductsCatalog([]);
-
           }
-
-
         } catch(error){
-
           console.error(
             "Error cargando productos:",
             error
           );
-
           setProductsCatalog([]);
-
         } finally {
-
           setLoadingProducts(false);
-
         }
-
       };
 
+      const fetchFactors = async () => {
+        setLoadingFactors(true);
+        try {
+          const response = await fetch(
+            "https://script.google.com/macros/s/AKfycbwOiqrkvaSyT7VYjzCTXXKPupq5s53ZvKT9vcbDt-GbVI443ryMZVokWtOdEYE1KfSe/exec",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "text/plain",
+              },
+              body: JSON.stringify({
+                action: "getFactors",
+                distributorCode: targetDistributor
+              }),
+            }
+          );
+
+          const data = await response.json();
+          console.log("Factores recibidos:", data);
+
+          if (data.success) {
+            const rawFactors = data.factors || [];
+            const mappedFactors = rawFactors.map((f: any) => ({
+              term: Number(f.months || f.term || 0),
+              factor: Number(f.factor || 0)
+            })).filter((f: any) => f.term > 0 && f.factor > 0);
+
+            setFactors(mappedFactors);
+            FinancialRepository.setActiveFactors(mappedFactors);
+
+            setAnnualRate(data.annualRate || 0);
+            setMonthlyRate(data.monthlyRate || "");
+
+            if (data.taxRate !== undefined) {
+              let parsedTax = 0.19;
+              if (typeof data.taxRate === 'string') {
+                const cleanStr = data.taxRate.replace('%', '').replace(',', '.').trim();
+                const num = parseFloat(cleanStr);
+                if (!isNaN(num)) {
+                  parsedTax = cleanStr.includes('%') || num > 0.99 ? num / 100 : num;
+                }
+              } else {
+                const num = Number(data.taxRate);
+                if (!isNaN(num)) {
+                  parsedTax = num > 0.99 ? num / 100 : num;
+                }
+              }
+              setTaxRate(parsedTax > 0 ? parsedTax : 0.19);
+            }
+          } else {
+            console.warn("Respuesta de factores no exitosa:", data);
+          }
+        } catch (error) {
+          console.error("Error cargando factores:", error);
+        } finally {
+          setLoadingFactors(false);
+        }
+      };
 
       fetchProducts();
-
+      fetchFactors();
+      fetchDistributorInfo(currentUser?.distributorCode || targetDistributor);
 
     }, [currentUser]);
 
@@ -282,19 +367,49 @@
     const setInitialPercentage = (pct: number) => {
       if (isNaN(pct)) return;
       const config = ConfigurationRepository.getConfiguration(companyProfileObj);
-      const clamped = Math.max(config.minInitialPercentage, Math.min(config.maxInitialPercentage, pct));
+      const minVal = distributorConfig?.minInitialPercentage !== undefined
+        ? (distributorConfig.minInitialPercentage > 1 ? distributorConfig.minInitialPercentage : distributorConfig.minInitialPercentage * 100)
+        : config.minInitialPercentage;
+      const maxVal = distributorConfig?.maxInitialPercentage !== undefined
+        ? (distributorConfig.maxInitialPercentage > 1 ? distributorConfig.maxInitialPercentage : distributorConfig.maxInitialPercentage * 100)
+        : config.maxInitialPercentage;
+      const clamped = Math.max(minVal, Math.min(maxVal, pct));
       setInitialPercentageState(clamped);
     };
+
+    // Clamp initialPercentage whenever distributorConfig updates
+    useEffect(() => {
+      if (distributorConfig) {
+        const config = ConfigurationRepository.getConfiguration(companyProfileObj);
+        const minVal = distributorConfig.minInitialPercentage !== undefined 
+          ? (distributorConfig.minInitialPercentage > 1 ? distributorConfig.minInitialPercentage : distributorConfig.minInitialPercentage * 100)
+          : config.minInitialPercentage;
+        const maxVal = distributorConfig.maxInitialPercentage !== undefined 
+          ? (distributorConfig.maxInitialPercentage > 1 ? distributorConfig.maxInitialPercentage : distributorConfig.maxInitialPercentage * 100)
+          : config.maxInitialPercentage;
+        if (initialPercentage < minVal || initialPercentage > maxVal) {
+          const clamped = Math.max(minVal, Math.min(maxVal, initialPercentage));
+          setInitialPercentageState(clamped);
+        }
+      }
+    }, [distributorConfig, companyProfileObj]);
 
     // Safe plazo setter (clamped between available terms)
     const setPlazo = (months: number) => {
       if (isNaN(months)) return;
-      const terms = FinancialRepository.getAvailableTerms(companyProfileObj);
-      if (terms.length > 0) {
-        const minTerm = Math.min(...terms);
-        const maxTerm = Math.max(...terms);
-        const clamped = Math.max(minTerm, Math.min(maxTerm, months));
-        setPlazoState(clamped);
+      const availableTerms = factors.map(f => f.term);
+      if (availableTerms.length > 0) {
+        if (availableTerms.includes(months)) {
+          setPlazoState(months);
+        } else {
+          const minTerm = Math.min(...availableTerms);
+          const maxTerm = Math.max(...availableTerms);
+          const clamped = Math.max(minTerm, Math.min(maxTerm, months));
+          const closest = availableTerms.reduce((prev, curr) => 
+            Math.abs(curr - clamped) < Math.abs(prev - clamped) ? curr : prev
+          );
+          setPlazoState(closest);
+        }
       } else {
         const clamped = Math.max(1, Math.min(36, months));
         setPlazoState(clamped);
@@ -355,8 +470,22 @@
           quantity: item.quantity,
           customInitial: item.customInitial,
         }));
-      return calculateGlobalFinancials(selectedItems, initialPercentage, plazo, companyProfileObj);
-    }, [cartItems, initialPercentage, plazo, companyProfileObj]);
+      const baseCalculations = calculateGlobalFinancials(selectedItems, initialPercentage, plazo, companyProfileObj, taxRate);
+      
+      let realCuotaMensual = baseCalculations.cuotaMensual;
+      if (factors && factors.length > 0) {
+        const matched = factors.find((f) => f.term === plazo);
+        if (matched) {
+          const rawCuota = baseCalculations.financedAmount * matched.factor;
+          realCuotaMensual = roundToNextThousand(rawCuota, companyProfileObj);
+        }
+      }
+      
+      return {
+        ...baseCalculations,
+        cuotaMensual: realCuotaMensual,
+      };
+    }, [cartItems, initialPercentage, plazo, companyProfileObj, factors, taxRate]);
 
     const {
       rawPurchasePrice,
@@ -369,8 +498,24 @@
     } = financials;
 
     // Standard simulated interest rates for backward-compatibility display in view screens
-    const monthlyInterestRate = 0.015; 
-    const annualInterestRate = 0.1956; // 19.56% TEA
+    const monthlyInterestRate = useMemo(() => {
+      if (!monthlyRate) return 0.015;
+      const cleaned = String(monthlyRate).replace('%', '').replace(',', '.').trim();
+      const num = parseFloat(cleaned);
+      if (isNaN(num)) return 0.015;
+      if (String(monthlyRate).includes('%') || num > 0.2) {
+        return num / 100;
+      }
+      return num;
+    }, [monthlyRate]);
+
+    const annualInterestRate = useMemo(() => {
+      if (!annualRate) return 0.1956;
+      if (annualRate > 1) {
+        return annualRate / 100;
+      }
+      return annualRate;
+    }, [annualRate]);
 
     const addRecentQuote = (clientName: string) => {
       if (totalPrice <= 0) return;
@@ -444,6 +589,8 @@
           loadingFactors,
           annualRate,
           monthlyRate,
+          taxRate,
+          distributorConfig,
           
           // Computed Values
           totalPrice,

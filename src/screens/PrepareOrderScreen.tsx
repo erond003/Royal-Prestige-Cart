@@ -28,9 +28,15 @@ export const PrepareOrderScreen: React.FC = () => {
     addRecentQuote,
     setScreen,
     clientName,
+    distributorConfig,
   } = useCart();
 
   const [copied, setCopied] = useState(false);
+
+  const rawLogoUrl = distributorConfig?.logoUrl || '';
+  const cleanLogoUrl = typeof rawLogoUrl === 'string'
+    ? rawLogoUrl.replace('[', '').replace(']', '').trim()
+    : '';
 
   const activeItems = cartItems.filter((item) => item.isSelected);
   const fmt = (val: number) => {
@@ -85,6 +91,40 @@ Pago mensual: ${fmt(cuotaMensual)}`;
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-16 space-y-6 font-sans">
+      {/* Company Header with logo from distributorConfig */}
+      {distributorConfig?.companyName && (
+        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left justify-between">
+          <div className="flex flex-col sm:flex-row items-center gap-3.5">
+            {cleanLogoUrl && (
+              <img
+                src={cleanLogoUrl}
+                alt={distributorConfig.companyName}
+                referrerPolicy="no-referrer"
+                className="w-16 h-16 object-contain rounded-lg border border-slate-100 p-1 bg-white shrink-0"
+              />
+            )}
+            <div>
+              <h2 className="text-base font-black text-slate-950 uppercase tracking-wide">
+                {distributorConfig.companyName}
+              </h2>
+              {distributorConfig.address && (
+                <p className="text-xs text-slate-500 font-medium">
+                  {distributorConfig.address} {distributorConfig.city ? `• ${distributorConfig.city}` : ''}
+                </p>
+              )}
+              {distributorConfig.phone && (
+                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  Tel: {distributorConfig.phone}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/40 font-mono shrink-0">
+            COTIZACIÓN OFICIAL
+          </div>
+        </div>
+      )}
+
       {/* Cliente Info Card */}
       <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between">
         <div className="space-y-0.5">

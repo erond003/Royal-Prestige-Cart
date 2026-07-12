@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 interface InitialSelectorProps {
   initialPercentage: number;
@@ -21,7 +22,17 @@ export const InitialSelector: React.FC<InitialSelectorProps> = ({
   setDropdownOpen,
   onOpenManualInitial,
 }) => {
-  const standardPercentages = Array.from({ length: 12 }, (_, i) => (i + 1) * 5); // 5% to 60%
+  const { distributorConfig } = useCart();
+
+  const minVal = distributorConfig?.minInitialPercentage !== undefined
+    ? (distributorConfig.minInitialPercentage > 1 ? distributorConfig.minInitialPercentage : distributorConfig.minInitialPercentage * 100)
+    : 5;
+  const maxVal = distributorConfig?.maxInitialPercentage !== undefined
+    ? (distributorConfig.maxInitialPercentage > 1 ? distributorConfig.maxInitialPercentage : distributorConfig.maxInitialPercentage * 100)
+    : 60;
+
+  const standardPercentages = Array.from({ length: 20 }, (_, i) => (i + 1) * 5)
+    .filter(pct => pct >= minVal && pct <= maxVal);
 
   return (
     <div className="bg-white px-2 py-1.5 border border-slate-200/80 rounded-xl shadow-sm flex flex-col justify-center relative min-h-[48px]">
@@ -32,9 +43,9 @@ export const InitialSelector: React.FC<InitialSelectorProps> = ({
         {/* Decrement Chevron */}
         <button
           id="btn-dec-pct"
-          onClick={() => setInitialPercentage(Math.max(5, initialPercentage - 5))}
+          onClick={() => setInitialPercentage(Math.max(minVal, initialPercentage - 5))}
           className="p-1 rounded-full hover:bg-slate-100 active:scale-90 transition-all text-slate-500 shrink-0"
-          title="Restar 5%"
+          title={`Restar 5% (Mínimo: ${minVal}%)`}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -92,9 +103,9 @@ export const InitialSelector: React.FC<InitialSelectorProps> = ({
         {/* Increment Chevron */}
         <button
           id="btn-inc-pct"
-          onClick={() => setInitialPercentage(Math.min(100, initialPercentage + 5))}
+          onClick={() => setInitialPercentage(Math.min(maxVal, initialPercentage + 5))}
           className="p-1 rounded-full hover:bg-slate-100 active:scale-90 transition-all text-slate-500 shrink-0"
-          title="Sumar 5%"
+          title={`Sumar 5% (Máximo: ${maxVal}%)`}
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>

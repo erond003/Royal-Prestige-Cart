@@ -8,7 +8,7 @@ import { useCart } from '../context/CartContext';
 import { FileText, PlusCircle, Settings, ShieldCheck, BarChart3, TrendingUp, Sparkles, Award } from 'lucide-react';
 
 export const HomeScreen: React.FC = () => {
-  const { setScreen, distributorInfo } = useCart();
+  const { setScreen, distributorInfo, distributorConfig } = useCart();
 
   return (
     <div className="space-y-3.5 px-1 sm:px-2">
@@ -34,7 +34,7 @@ export const HomeScreen: React.FC = () => {
           <div>
             <h2 className="text-lg sm:text-xl font-bold tracking-tight">Royal Prestige®</h2>
             <p className="text-[11px] sm:text-xs text-slate-300 leading-tight">
-              Herramienta de simulación de pedidos de <strong className="text-white">Witman Group SAS</strong>
+              Herramienta de simulación de pedidos de <strong className="text-white">{distributorConfig?.companyName || "Witman Group SAS"}</strong>
             </p>
           </div>
 

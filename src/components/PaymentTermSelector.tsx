@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 interface PaymentTermSelectorProps {
   plazo: number;
-  setPlazo: (plazo: number | ((prev: number) => number)) => void;
+  setPlazo: (plazo: number) => void;
   dropdownOpen: boolean;
   setDropdownOpen: (open: boolean) => void;
 }
@@ -19,6 +20,9 @@ export const PaymentTermSelector: React.FC<PaymentTermSelectorProps> = ({
   dropdownOpen,
   setDropdownOpen,
 }) => {
+  const { factors } = useCart();
+  const plazos = factors && factors.length > 0 ? factors.map((f: any) => f.term) : [12, 18, 24, 30, 36];
+
   return (
     <div className="bg-white px-2 py-1.5 border border-slate-200/80 rounded-xl shadow-sm flex flex-col justify-center relative min-h-[48px]">
       <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider text-center block">
@@ -29,16 +33,14 @@ export const PaymentTermSelector: React.FC<PaymentTermSelectorProps> = ({
         <button
           id="btn-dec-plazo"
           onClick={() => {
-            const plazos = [12, 18, 24, 30, 36];
             const currentIndex = plazos.indexOf(plazo);
             if (currentIndex > 0) {
               setPlazo(plazos[currentIndex - 1]);
-            } else if (currentIndex === -1) {
-              setPlazo((prev) => Math.max(12, Math.floor((prev - 1) / 6) * 6));
             }
           }}
-          className="p-1 rounded-full hover:bg-slate-100 active:scale-90 transition-all text-slate-500 shrink-0"
-          title="Restar 6 meses"
+          disabled={plazos.indexOf(plazo) <= 0}
+          className="p-1 rounded-full hover:bg-slate-100 active:scale-90 disabled:opacity-30 disabled:pointer-events-none transition-all text-slate-500 shrink-0"
+          title="Menor plazo"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -61,8 +63,8 @@ export const PaymentTermSelector: React.FC<PaymentTermSelectorProps> = ({
                 className="fixed inset-0 z-40" 
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-36 bg-white rounded-xl border border-slate-200/80 shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[12, 18, 24, 30, 36].map((p) => (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-36 max-h-48 overflow-y-auto overscroll-y-contain bg-white rounded-xl border border-slate-200/80 shadow-xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                {plazos.map((p) => (
                   <button
                     key={p}
                     onClick={() => {
@@ -87,16 +89,14 @@ export const PaymentTermSelector: React.FC<PaymentTermSelectorProps> = ({
         <button
           id="btn-inc-plazo"
           onClick={() => {
-            const plazos = [12, 18, 24, 30, 36];
             const currentIndex = plazos.indexOf(plazo);
             if (currentIndex !== -1 && currentIndex < plazos.length - 1) {
               setPlazo(plazos[currentIndex + 1]);
-            } else if (currentIndex === -1) {
-              setPlazo((prev) => Math.min(36, Math.ceil((prev + 1) / 6) * 6));
             }
           }}
-          className="p-1 rounded-full hover:bg-slate-100 active:scale-90 transition-all text-slate-500 shrink-0"
-          title="Sumar 6 meses"
+          disabled={plazos.indexOf(plazo) === -1 || plazos.indexOf(plazo) >= plazos.length - 1}
+          className="p-1 rounded-full hover:bg-slate-100 active:scale-90 disabled:opacity-30 disabled:pointer-events-none transition-all text-slate-500 shrink-0"
+          title="Mayor plazo"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>

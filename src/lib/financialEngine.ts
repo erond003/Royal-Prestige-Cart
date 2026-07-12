@@ -138,22 +138,23 @@ export function calculateGlobalFinancials(
   selectedItems: Array<{ price: number; quantity: number; customInitial?: CustomInitial }>,
   initialPercentage: number,
   plazo: number,
-  companyProfile?: CompanyProfile
+  companyProfile?: CompanyProfile,
+  taxRate: number = 0.19
 ): GlobalFinancials {
-  // Suma base de productos seleccionados
-  const rawPurchasePrice = selectedItems.reduce(
+  // Total de la transacción es la suma base que ya incluye el IVA de los productos seleccionados
+  const total = selectedItems.reduce(
     (sum, item) => sum + calculateTotalPrice(item.price, item.quantity),
     0
   );
 
-  // IVA Estimado del 19%
-  const ivaAmount = Math.round(rawPurchasePrice * 0.19);
+  // Costo de envío premium simulado (desactivado para sincronización perfecta con filas de productos)
+  const shippingAmount = 0;
 
-  // Costo de envío premium simulado
-  const shippingAmount = rawPurchasePrice > 0 ? 45000 : 0;
+  // Calcula el 'rawPurchasePrice' (Precio de Compra antes de IVA) dividiendo el totalPrice entre (1 + taxRate)
+  const rawPurchasePrice = Math.round(total / (1 + taxRate));
 
-  // Total de la transacción incluyendo envío (IVA ya se asume incluido en el precio de venta)
-  const total = rawPurchasePrice + shippingAmount;
+  // Calcula el 'ivaAmount' (Monto del IVA) multiplicando ese precio base por el taxRate
+  const ivaAmount = Math.round(rawPurchasePrice * taxRate);
 
   // Depósito inicial
   let initial = 0;

@@ -51,7 +51,7 @@ export const ConfigScreen: React.FC = () => {
                 {currentUser.nombre || (currentUser.user && currentUser.user.nombre) || "Vendedor Autorizado"}
               </h3>
               <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider mt-0.5 truncate">
-                Código: {currentUser.codigoVendedor || (currentUser.user && currentUser.user.codigoVendedor) || "N/A"} • {currentUser.distributor || "Distribuidor"}
+                Código: {currentUser.codigoVendedor || (currentUser.user && currentUser.user.codigoVendedor) || "N/A"} • {typeof currentUser.distributor === 'object' ? (currentUser.distributor.name || currentUser.distributor.code || "Distribuidor") : (currentUser.distributor || "Distribuidor")}
               </p>
             </div>
           </div>
